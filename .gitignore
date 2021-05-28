@@ -1,0 +1,9 @@
+.vs/
+.vscode/
+.ionide/
+out/
+publish/
+*.html
+17*.pdf
+*.zip
+readme.pdf
