@@ -28,6 +28,10 @@ THE SOFTWARE.*/
 #include "WindowsApp.h"
 #include "vec3.h"
 #include "ray.h"
+#include "hitable.h"
+#include "hitable_list.h"
+#include "sphere.h"
+#include "camera.h"
 
 typedef std::array<float, 3> Pixel;					//RGB pixel
 static std::vector<std::vector<Pixel>> gCanvas;		//Canvas
@@ -35,6 +39,8 @@ static std::vector<std::vector<Pixel>> gCanvas;		//Canvas
 // The width and height of the screen
 constexpr int gHeight = 400;
 constexpr int gWidth  = 800;
+
+static unsigned long long seed = 1;
 
 void rendering();
 
@@ -91,36 +97,65 @@ void writeRGBToCanvas(const float &r, const float &g, const float &b, int x, int
 
 }
 
-vec3 color(const ray& r) {
+float hit_sphere(const vec3& center, float radius, const ray& r) {
+	vec3 oc = r.origin() - center;
+	float a = dot(r.direction(), r.direction());
+	float b = 2.0f * dot(oc, r.direction());
+	float c = dot(oc, oc) - radius * radius;
+	float discriminant = b * b - a * c * 4;
+	if (discriminant < 0) return -1.0f;
+	return (-b - sqrt(discriminant)) / (2.0f * a);
+}
+
+vec3 color(const ray& r, hitable *world) {
+	hit_record rec;
+	if (world->hit(r, 0.0, std::numeric_limits<float>::max(), rec)) {
+		return 0.5f * vec3(rec.normal.x() + 1, rec.normal.y() + 1, rec.normal.z() + 1);
+	}
+
 	vec3 unit_direction = unit_vector(r.direction());
 	float t = 0.5f * (unit_direction.y() + 1.0f);
 	return (1.0f - t) * vec3(1.0f, 1.0f, 1.0f) + t * vec3(0.5f, 0.7f, 1.0f);
 }
 
+double drand48(void)
+{
+	seed = (0x5DEECE66DLL * seed + 0xB16) & 0xFFFFFFFFFFFFLL;
+	unsigned int x = seed >> 16;
+	return ((double)x / (double)0x100000000LL);
+}
+
 void rendering()
 {
-
 	printf("CGAssignment4 (built %s at %s) \n", __DATE__, __TIME__);
 	std::cout << "Ray-tracing based rendering launched..." << std::endl;
 	int nx = gWidth;
 	int ny = gHeight;
+	int ns = 100;
 
 	double startFrame = clock();
 
-	vec3 lower_left_corner(-2.0f, -1.0f, -1.0f), 
-		horizontal(4.0f, 0.0f, 0.0f), 
-		vertical(0.0f, 2.0f, 0.0f), 
-		origin(0.0f, 0.0f, 0.0f);
+	hitable* list[2];
+	list[0] = new sphere(vec3(0, 0, -1), 0.5);
+	list[1] = new sphere(vec3(0, -100.5, -1), 100);
+	hitable* world = new hitable_list(list, 2);
+
+	camera cam;
 
 	// The main ray-tracing based rendering loop
 	for (int j = ny - 1; j >= 0; j--)
 	{
 		for (int i = 0; i < nx; i++)
 		{
-			float u = float(i) / float(nx);
-			float v = float(j) / float(ny);
-			ray r(origin, lower_left_corner + u * horizontal + v * vertical);
-			vec3 col = color(r);
+			vec3 col(0, 0, 0);
+			for (int s = 0; s < ns; s++) {
+				float u = float(i + drand48()) / float(nx);
+				float v = float(j + drand48()) / float(ny);
+				ray r = cam.get_ray(u, v);
+				vec3 p = r.point(2.0);
+				col += color(r, world);
+			}
+			col /= float(ns);
 			int ir = 256 - int(255.99 * col[0]);
 			int ig = 256 - int(255.99 * col[1]);
 			int ib = 256 - int(255.99 * col[2]);
