@@ -32,15 +32,19 @@ THE SOFTWARE.*/
 #include "hitable_list.h"
 #include "sphere.h"
 #include "camera.h"
+#include "lambertian.h"
+#include "metal.h"
+#include "dielectric.h"
+#include "bvh_node.h"
 
 typedef std::array<float, 3> Pixel;					//RGB pixel
 static std::vector<std::vector<Pixel>> gCanvas;		//Canvas
 
 // The width and height of the screen
-constexpr int gHeight = 400;
-constexpr int gWidth  = 800;
+constexpr int gHeight = 800;
+constexpr int gWidth  = 1200;
 
-static unsigned long long seed = 1;
+#define USE_BVH 1
 
 void rendering();
 
@@ -107,10 +111,17 @@ float hit_sphere(const vec3& center, float radius, const ray& r) {
 	return (-b - sqrt(discriminant)) / (2.0f * a);
 }
 
-vec3 color(const ray& r, hitable *world) {
+vec3 color(const ray& r, hitable *world, int depth) {
 	hit_record rec;
-	if (world->hit(r, 0.0, std::numeric_limits<float>::max(), rec)) {
-		return 0.5f * vec3(rec.normal.x() + 1, rec.normal.y() + 1, rec.normal.z() + 1);
+	if (world->hit(r, 0.001, std::numeric_limits<float>::max(), rec)) {
+		ray scattered;
+		vec3 attenuation;
+		if (depth < 50 && rec.material->scatter(r, rec, attenuation, scattered)) {
+			return attenuation * color(scattered, world, depth + 1);
+		}
+		else {
+			return vec3(0, 0, 0);
+		}
 	}
 
 	vec3 unit_direction = unit_vector(r.direction());
@@ -118,11 +129,41 @@ vec3 color(const ray& r, hitable *world) {
 	return (1.0f - t) * vec3(1.0f, 1.0f, 1.0f) + t * vec3(0.5f, 0.7f, 1.0f);
 }
 
-double drand48(void)
-{
-	seed = (0x5DEECE66DLL * seed + 0xB16) & 0xFFFFFFFFFFFFLL;
-	unsigned int x = seed >> 16;
-	return ((double)x / (double)0x100000000LL);
+hitable* random_scene() {
+	hitable** list = new hitable * [501];
+
+	list[0] = new sphere(vec3(0, -1000, 0), 1000, new lambertian(vec3(0.5, 0.5, 0.5)));
+	int i = 1;
+	for (int a = -11; a < 11; a++) {
+		for (int b = -11; b < 11; b++) {
+			float choose_mat = drand48();
+			vec3 center(a + 0.9 * drand48(), 0.2, b + 0.9 * drand48());
+			if ((center - vec3(4, 0.2, 0)).length() > 0.9) {
+				if (choose_mat < 0.8) {
+					list[i++] = new sphere(center, 0.2, new lambertian(vec3(drand48() * drand48(), drand48() * drand48(), drand48() * drand48())));
+				}
+				else if (choose_mat < 0.95) {
+					list[i++] = new sphere(center, 0.2, new metal(
+						vec3(0.5 * (1 + drand48()), 0.5 * (1 + drand48()), 0.5 * (1 + drand48())), 0.5 * drand48()
+					));
+				}
+				else {
+					list[i++] = new sphere(center, 0.2, new dielectric(1.5));
+				}
+			}
+		}
+	}
+
+	list[i++] = new sphere(vec3(0, 1, 0), 1.0, new dielectric(1.5));
+	list[i++] = new sphere(vec3(-4, 1, 0), 1.0, new lambertian(vec3(0.4,0.2,0.1)));
+	list[i++] = new sphere(vec3(4, 1, 0), 1.0, new metal(vec3(0.7, 0.6, 0.5), 0.0));
+
+#if USE_BVH
+	return new bvh_node(list, i, 0.0f, 1.0f);
+#else
+	return new hitable_list(list, i);
+#endif
+
 }
 
 void rendering()
@@ -131,16 +172,15 @@ void rendering()
 	std::cout << "Ray-tracing based rendering launched..." << std::endl;
 	int nx = gWidth;
 	int ny = gHeight;
-	int ns = 100;
+	int ns = 10;
 
 	double startFrame = clock();
 
-	hitable* list[2];
-	list[0] = new sphere(vec3(0, 0, -1), 0.5);
-	list[1] = new sphere(vec3(0, -100.5, -1), 100);
-	hitable* world = new hitable_list(list, 2);
+	hitable* world = random_scene();
 
-	camera cam;
+	vec3 lookfrom(13, 2, 3), lookat(0, 0, 0);
+
+	camera cam(lookfrom, lookat, vec3(0, 1, 0), 20, float(nx) / float(ny), 0.1, 10.0);
 
 	// The main ray-tracing based rendering loop
 	for (int j = ny - 1; j >= 0; j--)
@@ -152,13 +192,12 @@ void rendering()
 				float u = float(i + drand48()) / float(nx);
 				float v = float(j + drand48()) / float(ny);
 				ray r = cam.get_ray(u, v);
-				vec3 p = r.point(2.0);
-				col += color(r, world);
+				col += color(r, world, 0);
 			}
 			col /= float(ns);
-			int ir = 256 - int(255.99 * col[0]);
-			int ig = 256 - int(255.99 * col[1]);
-			int ib = 256 - int(255.99 * col[2]);
+			int ir = 256 - int(255.99 * sqrt(col[0]));
+			int ig = 256 - int(255.99 * sqrt(col[1]));
+			int ib = 256 - int(255.99 * sqrt(col[2]));
 
 			writeRGBToCanvas(ir, ig, ib, i, j);
 		}

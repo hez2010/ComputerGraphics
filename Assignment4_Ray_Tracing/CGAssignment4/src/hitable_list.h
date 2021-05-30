@@ -25,6 +25,23 @@ public:
 
         return h;
     }
+
+    virtual bool bounding_box(float t0, float t1, aabb& box) const {
+        if (size < 1) return false;
+
+        aabb temp_box;
+        bool first_true = list[0]->bounding_box(t0, t1, temp_box);
+        if (!first_true) return false;
+        box = temp_box;
+        for (int i = 1; i < size; i++) {
+            if (list[i]->bounding_box(t0, t1, temp_box)) {
+                box = surrounding_box(box, temp_box);
+            }
+            else return false;
+        }
+
+        return true;
+    }
 };
 
 #endif

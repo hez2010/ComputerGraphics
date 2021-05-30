@@ -2,14 +2,15 @@
 #define SPHEREH
 
 #include "hitable.h"
+#include "material.h"
 
 class sphere : public hitable {
 public:
     vec3 center;
     float radius;
+    material* mat_ptr;
 
-    sphere() {}
-    sphere(vec3 center, float radius) : center(center), radius(radius) {}
+    sphere(vec3 center, float radius, material* mat_ptr) : center(center), radius(radius), mat_ptr(mat_ptr){}
     virtual bool hit(const ray& r, float t_min, float t_max, hit_record& rec) const {
         vec3 oc = r.origin() - center;
         float a = dot(r.direction(), r.direction());
@@ -34,11 +35,17 @@ public:
                 rec.t = temp;
                 rec.p = r.point(rec.t);
                 rec.normal = (rec.p - center) / radius;
+                rec.material = mat_ptr;
                 return true;
             }
         }
 
         return false;
+    }
+
+    virtual bool bounding_box(float t0, float t1, aabb& box) const {
+        box = aabb(center - vec3(radius, radius, radius), center + vec3(radius, radius, radius));
+        return true;
     }
 };
 

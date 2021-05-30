@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <iostream>
 
+static unsigned long long seed = 1;
+
 class vec3 {
 public:
 	vec3() { e[0] = e[1] = e[2] = 0; }
@@ -137,6 +139,39 @@ inline vec3& vec3::operator/=(const float t) {
 
 inline vec3 unit_vector(vec3 v) {
 	return v / v.length();
+}
+
+inline double drand48(void)
+{
+	seed = (0x5DEECE66DLL * seed + 0xB16) & 0xFFFFFFFFFFFFLL;
+	unsigned int x = seed >> 16;
+	return ((double)x / (double)0x100000000LL);
+}
+
+inline vec3 random_point() {
+	vec3 p;
+
+	do {
+		p = 2.0 * vec3(drand48(), drand48(), drand48()) - vec3(1, 1, 1);
+	} while (p.squared_length() >= 1.0);
+
+	return p;
+}
+
+inline vec3 reflect(const vec3& v, const vec3& n) {
+	return v - 2 * dot(v, n) * n;
+}
+
+inline bool refract(const vec3& v, const vec3& n, float ni_over_nt, vec3& refracted) {
+	vec3 uv = unit_vector(v);
+	float dt = dot(uv, n);
+	float discriminant = 1.0f - ni_over_nt * ni_over_nt * (1 - dt * dt);
+	if (discriminant > 0) {
+		refracted = ni_over_nt * (uv - n * dt) - n * sqrt(discriminant);
+		return true;
+	}
+
+	return false;
 }
 
 #endif
