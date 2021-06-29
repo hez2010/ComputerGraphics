@@ -6,7 +6,7 @@
 Bézier 曲线的定义公式如下：
 
 $$ Q(t)=\sum_{i=0}^n{P_iB_{i,n}(t)},t\in [0,1] $$
-$$ B_{i,n}(t)=\frac{n!}{i!(n-i)!}t^i(1-t)^(n-1),i=0,1,\cdots,n $$
+$$ B_{i,n}(t)=\frac{n!}{i!(n-i)!}t^i(1-t)^{(n-i)},i=0,1,\cdots,n $$
 
 因此，根据上述公式可以写出如下代码：
 
