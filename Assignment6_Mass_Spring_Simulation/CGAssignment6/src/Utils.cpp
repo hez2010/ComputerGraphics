@@ -80,22 +80,25 @@ void Simulator::simulate()
 	static constexpr float dt = 0.0001f;
 	static constexpr glm::vec2 gravity = glm::vec2(0.0f, -9.8f);
 
-	// TODO: for each particle i, calculate the force f, and then update the m_v[i]
+	// Save previous m_v
+	// std::vector<glm::vec2> m_v_prev(m_v);
+
 	for (unsigned int i = 0; i < m_numParticles; ++i)
 	{
 		// Gravity force
 		glm::vec2 force = gravity * m_particleMass;
-		// You should use m_restLength[i][j], m_stiffness, m_x, dt, and m_particleMass herein
+		// Spring force
 		for (unsigned int j = 0; j < m_numParticles; ++j)
 		{
-
+			if (i == j || m_restLength[i][j] == 0) continue;
+			force += -m_stiffness * (glm::length(m_x[i] - m_x[j]) - m_restLength[i][j]) * glm::normalize(m_x[i] - m_x[j]);
 		}
-		//Update the m_v[i]
 
+		// Update m_v[i]
+		m_v[i] += dt * force / m_particleMass;
 	}
 
 	// Collide with the ground
-	// Note: no need to modify it
 	for (unsigned int i = 0; i < m_numParticles; ++i)
 	{
 		if (m_x[i].y < 0.0f)
@@ -103,12 +106,13 @@ void Simulator::simulate()
 			m_x[i].y = 0.0f;
 			m_v[i].y = 0.0f;
 		}
+
+		m_v[i] *= glm::exp(-dt * m_damping);
 	}
 
-	// Todo: update the position m_x[i] using m_v[i]
-	// Note: you should use the time step dt
+	// Update the position m_x[i] using m_v[i]
 	for (unsigned int i = 1; i < m_numParticles; ++i)
 	{
-
+		m_x[i] += dt * m_v[i];
 	}
 }
