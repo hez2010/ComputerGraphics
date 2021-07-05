@@ -80,7 +80,6 @@ void Simulator::simulate()
 	static constexpr float dt = 0.0001f;
 	static constexpr glm::vec2 gravity = glm::vec2(0.0f, -9.8f);
 
-	// Save previous m_v
 	// std::vector<glm::vec2> m_v_prev(m_v);
 
 	for (unsigned int i = 0; i < m_numParticles; ++i)
